@@ -21,7 +21,7 @@ LLAMA_PARAMS = {
     "f16_kv": True,           # use half-precision key-values if supported
     "temperature": 0.1,
     "top_p": 0.9,
-    "max_tokens": 2048        # max tokens to generate per prompt
+    "max_tokens": 6144        # max tokens to generate per prompt
 }
 
 #################################
