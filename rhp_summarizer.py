@@ -6,7 +6,7 @@ from llama_cpp import Llama
 # Configuration
 #################################
 PDF_PATH = "mobikwik.pdf"  # Update with your RHP PDF filename
-MODEL_PATH = "./models/llama-2-7b.ggmlv3.q4_0.bin"  # Path to your GGML model file
+MODEL_PATH = "./models/ llama-2-7b-chat.ggmlv3.q4_0.bin"  # Path to your GGML model file
 PAGE_SUMMARY_WORD_LIMIT = 150
 SECTION_SUMMARY_WORD_LIMIT = 300
 CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
