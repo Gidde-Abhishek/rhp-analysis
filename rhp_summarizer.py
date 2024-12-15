@@ -15,13 +15,13 @@ CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
 # Adjust these as needed. For larger models, you may need more GPU memory or fewer context tokens.
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 2048,            # context window - adjust as needed
+    "n_ctx": 4096,            # context window - adjust as needed
     "n_threads": 8,           # number of CPU threads
-    "n_gpu_layers": 0,        # GPU acceleration if available (set accordingly)
+    "n_gpu_layers": 20,        # GPU acceleration if available (set accordingly)
     "f16_kv": True,           # use half-precision key-values if supported
     "temperature": 0.1,
     "top_p": 0.9,
-    "max_tokens": 1024        # max tokens to generate per prompt
+    "max_tokens": 2048        # max tokens to generate per prompt
 }
 
 #################################
