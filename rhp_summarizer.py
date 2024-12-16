@@ -14,13 +14,13 @@ CHUNK_SIZE = 20
 
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 8000,          # simpler context window
-    "n_threads": 16,        # reasonable CPU threads
-    "n_gpu_layers": 40,     # offload layers to GPU if supported
+    "n_ctx": 4096,
+    "n_threads": 16,
+    "n_gpu_layers": 40,
     "f16_kv": True,
-    "temperature": 0.7,     # increase temperature for more elaboration
+    "temperature": 0.7,
     "top_p": 0.9,
-    "max_tokens": 2048,     # limit generation length, can adjust if needed
+    "max_tokens": 2048,
     "verbose": False
 }
 
@@ -82,11 +82,12 @@ def extract_pages(pdf_path):
             pages_text.append(text)
     return pages_text
 
-def run_local_llm(client: Llama, prompt: str) -> str:
+def run_local_llm(client: Llama, prompt: str, max_tokens=None) -> str:
+    # If max_tokens is not provided, it will default to the model's setting.
     response = client(
         prompt=prompt,
         echo=False,
-        # No stop tokens here
+        max_tokens=max_tokens if max_tokens else None
     )
     return response['choices'][0]['text'].strip()
 
@@ -98,9 +99,9 @@ def summarize_section(client: Llama, summaries_text, word_limit=300):
     prompt = SECTION_SUMMARY_PROMPT_TEMPLATE.format(summaries=summaries_text, word_limit=word_limit)
     return run_local_llm(client, prompt)
 
-def assemble_final_note(client: Llama, section_summaries_text):
+def assemble_final_note(client: Llama, section_summaries_text, max_tokens=4096):
     prompt = FINAL_NOTE_PROMPT_TEMPLATE.format(all_section_summaries=section_summaries_text)
-    return run_local_llm(client, prompt)
+    return run_local_llm(client, prompt, max_tokens=max_tokens)
 
 #################################
 # Main Pipeline
@@ -112,11 +113,18 @@ def main():
     pages_text = extract_pages(PDF_PATH)
     print(f"Extracted {len(pages_text)} pages from {PDF_PATH}")
 
+    # Ensure log directory
+    os.makedirs("logs", exist_ok=True)
+
     page_summaries = []
     for i, p_text in enumerate(pages_text):
         print(f"Summarizing page {i+1}/{len(pages_text)}...")
         summary = summarize_page(client, p_text, word_limit=PAGE_SUMMARY_WORD_LIMIT)
         page_summaries.append(summary)
+
+        # Log page summary
+        with open(f"logs/page_{i+1}_summary.txt", "w") as f:
+            f.write(summary)
 
     section_summaries = []
     for i in range(0, len(page_summaries), CHUNK_SIZE):
@@ -128,11 +136,21 @@ def main():
         section_summary = summarize_section(client, chunk_joined, word_limit=SECTION_SUMMARY_WORD_LIMIT)
         section_summaries.append(section_summary)
 
+        # Log section summary
+        with open(f"logs/section_{start_page}_to_{end_page}_summary.txt", "w") as f:
+            f.write(section_summary)
+
     all_section_summaries = "\n\n".join(section_summaries)
     print("Assembling final IPO note...")
-    final_ipo_note = assemble_final_note(client, all_section_summaries)
 
-    # Save to file for inspection
+    # Log final prompt before generation
+    final_prompt = FINAL_NOTE_PROMPT_TEMPLATE.format(all_section_summaries=all_section_summaries)
+    with open("logs/final_prompt.txt", "w") as f:
+        f.write(final_prompt)
+
+    final_ipo_note = assemble_final_note(client, all_section_summaries, max_tokens=8192)
+
+    # Save final output to file
     with open("final_ipo_note.txt", "w") as f:
         f.write(final_ipo_note)
 
