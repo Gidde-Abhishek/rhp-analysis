@@ -14,9 +14,9 @@ CHUNK_SIZE = 20
 
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 8192,
-    "n_threads": 16,
-    "n_gpu_layers": 40,
+    "n_ctx": 15360,
+    "n_threads": 32,
+    "n_gpu_layers": -1,
     "f16_kv": True,
     "temperature": 0.7,
     "top_p": 0.9,
