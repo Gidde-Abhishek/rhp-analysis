@@ -24,22 +24,49 @@ CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
 #     "max_tokens": 6144        # max tokens to generate per prompt
 # }
 
+# LLAMA_PARAMS = {
+#     "model_path": MODEL_PATH,
+#     "n_ctx": 7168,
+#     "n_threads": 16,            # Match your CPU core count
+#     "n_gpu_layers": -1,         # Offload all layers to GPU
+#     "n_batch": 512,             # Increased batch size for RTX 4090
+#     "f16_kv": True,
+#     "f16": True,
+#     "use_mlock": False,
+#     "use_mmap": True,
+#     "offload_kqv": True,        # Additional GPU optimization
+#     "vulkan": False,            # Ensure CUDA is used instead of Vulkan
+#     "temperature": 0.1,
+#     "top_p": 0.9,
+#     "max_tokens": 6144
+# }
+
+
+# GPU GOD Mode.
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 7168,
-    "n_threads": 16,            # Match your CPU core count
-    "n_gpu_layers": -1,         # Offload all layers to GPU
-    "n_batch": 512,             # Increased batch size for RTX 4090
+    "n_ctx": 8192,              # Increased context window
+    "n_threads": 32,            # Increased for your 16-core/32-thread CPU
+    "n_gpu_layers": -1,         # All layers on GPU
+    "n_batch": 2048,            # Significantly increased batch size for RTX 4090
     "f16_kv": True,
     "f16": True,
-    "use_mlock": False,
+    "use_mlock": True,          # Changed to True to prevent memory swapping
     "use_mmap": True,
-    "offload_kqv": True,        # Additional GPU optimization
-    "vulkan": False,            # Ensure CUDA is used instead of Vulkan
+    "offload_kqv": True,
+    "mul_mat_q": True,          # Enable quantized multiplication
+    "tensor_split": None,       # Single GPU setup
+    "rope_scaling": {"type": "linear", "factor": 4.0},  # Extended context scaling
+    "numa": True,               # Enable NUMA optimization
+    "gpu_memory_utilization": 0.9,  # Use 90% of available GPU memory
     "temperature": 0.1,
     "top_p": 0.9,
-    "max_tokens": 6144
+    "max_tokens": 8192,         # Increased to match context window
+    "cache_capacity": None,     # Unlimited KV cache
+    "embedding": True,          # Enable embedding mode
+    "verbose": True             # Help monitor performance
 }
+
 
 #################################
 # Prompts
