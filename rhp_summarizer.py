@@ -166,6 +166,9 @@ import os
 import pdfplumber
 from llama_cpp import Llama
 import re
+import tiktoken
+from typing import List, Tuple
+import math
 
 #################################
 # Configuration
@@ -372,6 +375,92 @@ def main():
         f.write(final_ipo_note)
 
     print("Final IPO Note saved to final_ipo_note.txt")
+
+def count_tokens(text: str) -> int:
+    """Approximate token count using tiktoken."""
+    enc = tiktoken.get_encoding("cl100k_base")
+    return len(enc.encode(text))
+
+def chunk_summaries_by_tokens(summaries: List[Tuple[int, str]], target_tokens: int = 10000) -> List[List[Tuple[int, str]]]:
+    """Split summaries into chunks that fit within token limit."""
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
+    
+    for page_num, summary in summaries:
+        summary_tokens = count_tokens(summary) + 100  # Add buffer for formatting
+        
+        if current_tokens + summary_tokens > target_tokens and current_chunk:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_tokens = 0
+        
+        current_chunk.append((page_num, summary))
+        current_tokens += summary_tokens
+    
+    if current_chunk:
+        chunks.append(current_chunk)
+    
+    return chunks
+
+# Modify the main() function to use token-based chunking
+def main():
+    print("Loading LLaMA model...")
+    client = Llama(**LLAMA_PARAMS)
+
+    # Create logs directory
+    os.makedirs("logs", exist_ok=True)
+
+    # Extract and filter pages
+    pages_text, page_numbers = extract_pages(PDF_PATH)
+    print(f"Extracted {len(pages_text)} relevant pages from {PDF_PATH}")
+
+    # Process pages in batches
+    page_summaries = process_pages_in_batches(client, pages_text, page_numbers)
+    
+    # Sort summaries by page number
+    page_summaries.sort(key=lambda x: x[0])
+    
+    # Group summaries into token-sized chunks
+    chunks = chunk_summaries_by_tokens(page_summaries, target_tokens=7000)  # Conservative limit
+    
+    # Process each chunk into section summaries
+    section_summaries = []
+    for i, chunk in enumerate(chunks):
+        chunk_text = "\n\n".join([f"Page {num}: {summary}" for num, summary in chunk])
+        start_page = chunk[0][0]
+        end_page = chunk[-1][0]
+        
+        print(f"Summarizing section {i+1}/{len(chunks)}: pages {start_page} to {end_page}")
+        try:
+            section_summary = summarize_section(client, chunk_text, word_limit=SECTION_SUMMARY_WORD_LIMIT)
+            section_summaries.append(section_summary)
+            
+            with open(f"logs/section_{start_page}_to_{end_page}_summary.txt", "w") as f:
+                f.write(section_summary)
+        except Exception as e:
+            print(f"Error processing section {i+1}: {str(e)}")
+            continue
+
+    # Combine section summaries with token limit in mind
+    all_summaries_text = "\n\n".join(section_summaries)
+    if count_tokens(all_summaries_text) > 10000:  # Conservative limit for final summary
+        # Truncate or further summarize if needed
+        section_summaries = section_summaries[:math.floor(10000/count_tokens(section_summaries[0]))]
+        all_summaries_text = "\n\n".join(section_summaries)
+    
+    print("Assembling final IPO note...")
+    try:
+        final_ipo_note = assemble_final_note(client, all_summaries_text)
+        with open("final_ipo_note.txt", "w") as f:
+            f.write(final_ipo_note)
+        print("Final IPO Note saved to final_ipo_note.txt")
+    except Exception as e:
+        print(f"Error in final note generation: {str(e)}")
+        # Attempt to save what we have
+        with open("section_summaries.txt", "w") as f:
+            f.write(all_summaries_text)
+        print("Section summaries saved to section_summaries.txt")
 
 if __name__ == "__main__":
     main()
