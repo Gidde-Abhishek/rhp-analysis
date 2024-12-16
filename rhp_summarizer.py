@@ -7,66 +7,34 @@ from llama_cpp import Llama
 #################################
 PDF_PATH = "mobikwik.pdf"  # Update with your RHP PDF filename
 MODEL_PATH = "./models/llama-2-7b-chat.Q4_K_M.gguf"  # Path to your GGML model file
+
 PAGE_SUMMARY_WORD_LIMIT = 150
 SECTION_SUMMARY_WORD_LIMIT = 300
 CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
 
-# LLaMA model parameters
-# Adjust these as needed. For larger models, you may need more GPU memory or fewer context tokens.
-# LLAMA_PARAMS = {
-#     "model_path": MODEL_PATH,
-#     "n_ctx": 7168,            # context window - adjust as needed
-#     "n_threads": 0,           # number of CPU threads
-#     "n_gpu_layers": 40,        # GPU acceleration if available (set accordingly)
-#     "f16_kv": True,           # use half-precision key-values if supported
-#     "temperature": 0.1,
-#     "top_p": 0.9,
-#     "max_tokens": 6144        # max tokens to generate per prompt
-# }
-
-# LLAMA_PARAMS = {
-#     "model_path": MODEL_PATH,
-#     "n_ctx": 7168,
-#     "n_threads": 16,            # Match your CPU core count
-#     "n_gpu_layers": -1,         # Offload all layers to GPU
-#     "n_batch": 512,             # Increased batch size for RTX 4090
-#     "f16_kv": True,
-#     "f16": True,
-#     "use_mlock": False,
-#     "use_mmap": True,
-#     "offload_kqv": True,        # Additional GPU optimization
-#     "vulkan": False,            # Ensure CUDA is used instead of Vulkan
-#     "temperature": 0.1,
-#     "top_p": 0.9,
-#     "max_tokens": 6144
-# }
-
-
-# GPU GOD Mode.
+# Adjust LLaMA parameters if needed.
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 8192,              # Increased context window
-    "n_threads": 32,            # Increased for your 16-core/32-thread CPU
-    "n_gpu_layers": -1,         # All layers on GPU
-    "n_batch": 2048,            # Significantly increased batch size for RTX 4090
+    "n_ctx": 8192,
+    "n_threads": 32,
+    "n_gpu_layers": -1,   # All layers on GPU if supported
+    "n_batch": 2048,
     "f16_kv": True,
     "f16": True,
-    "use_mlock": True,          # Changed to True to prevent memory swapping
+    "use_mlock": True,
     "use_mmap": True,
     "offload_kqv": True,
-    "mul_mat_q": True,          # Enable quantized multiplication
-    "tensor_split": None,       # Single GPU setup
-    "rope_scaling": {"type": "linear", "factor": 4.0},  # Extended context scaling
-    "numa": True,               # Enable NUMA optimization
-    "gpu_memory_utilization": 0.9,  # Use 90% of available GPU memory
+    "mul_mat_q": True,
+    "tensor_split": None,
+    "rope_scaling": {"type": "linear", "factor": 4.0},
+    "numa": True,
+    "gpu_memory_utilization": 0.9,
     "temperature": 0.1,
     "top_p": 0.9,
-    "max_tokens": 8192,         # Increased to match context window
-    "cache_capacity": None,     # Unlimited KV cache
-    "embedding": True,          # Enable embedding mode
-    "verbose": True             # Help monitor performance
+    "max_tokens": 8192,
+    "embedding": False,  # Embedding not needed here
+    "verbose": False
 }
-
 
 #################################
 # Prompts
@@ -90,7 +58,8 @@ SECTION_SUMMARY_PROMPT_TEMPLATE = """You have the following summaries of multipl
 {summaries}
 
 Please produce a higher-level summary (no more than {word_limit} words) integrating all these details. Focus on key financials, strategic insights, risk factors, and IPO-related info that appear repeatedly or stand out as important. Provide a coherent narrative that merges the information from these pages.
-"""
+
+Your Integrated Summary:"""
 
 FINAL_NOTE_PROMPT_TEMPLATE = """You have been provided integrated summaries of multiple sections of a Red Herring Prospectus. Use them to produce a concise, structured IPO note that includes:
 
@@ -110,7 +79,7 @@ Use a professional, structured format. Present tables in Markdown format. Ensure
 Section Summaries:
 {all_section_summaries}
 
-Now produce the final IPO note:
+Now produce the final IPO note below. Do not stop early:
 """
 
 #################################
@@ -126,18 +95,14 @@ def extract_pages(pdf_path):
     return pages_text
 
 def run_local_llm(client: Llama, prompt: str) -> str:
-    # Using llama-cpp-python's API
-    # We use 'stop' tokens to prevent model from producing excessively long output.
-    # Adjust stop tokens as needed.
+    # Removed stop tokens to avoid premature cutoff.
     response = client(
         prompt=prompt,
-        stop=["\n\n"],  # stop when encountering double newlines, can tweak
         echo=False,
         temperature=0.1,
         top_p=0.9,
-        max_tokens=1024
+        # Allow the model to generate as many tokens as needed (up to the max_tokens in LLAMA_PARAMS).
     )
-    # The response is a dict. The generated text is in response['choices'][0]['text']
     return response['choices'][0]['text'].strip()
 
 def summarize_page(client: Llama, page_text, word_limit=150):
