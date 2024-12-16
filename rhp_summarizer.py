@@ -13,15 +13,32 @@ CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
 
 # LLaMA model parameters
 # Adjust these as needed. For larger models, you may need more GPU memory or fewer context tokens.
+# LLAMA_PARAMS = {
+#     "model_path": MODEL_PATH,
+#     "n_ctx": 7168,            # context window - adjust as needed
+#     "n_threads": 0,           # number of CPU threads
+#     "n_gpu_layers": 40,        # GPU acceleration if available (set accordingly)
+#     "f16_kv": True,           # use half-precision key-values if supported
+#     "temperature": 0.1,
+#     "top_p": 0.9,
+#     "max_tokens": 6144        # max tokens to generate per prompt
+# }
+
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 7168,            # context window - adjust as needed
-    "n_threads": 0,           # number of CPU threads
-    "n_gpu_layers": 40,        # GPU acceleration if available (set accordingly)
-    "f16_kv": True,           # use half-precision key-values if supported
+    "n_ctx": 7168,
+    "n_threads": 8,              # Increased from 0 to utilize multiple CPU threads
+    "n_gpu_layers": -1,          # Changed to -1 to offload all layers to GPU
+    "n_batch": 512,              # Added batch size for better GPU utilization
+    "f16_kv": True,
+    "f16": True,                 # Added full FP16 inference
+    "use_mlock": False,          # Prevents memory from being swapped
+    "use_mmap": True,            # Memory-mapped IO for faster loading
+    "embedding": True,           # Enable embedding mode
     "temperature": 0.1,
     "top_p": 0.9,
-    "max_tokens": 6144        # max tokens to generate per prompt
+    "max_tokens": 6144,
+    "gpu_layers": -1             # Alternative way to specify full GPU offload
 }
 
 #################################
