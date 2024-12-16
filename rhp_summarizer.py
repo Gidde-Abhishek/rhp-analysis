@@ -5,34 +5,22 @@ from llama_cpp import Llama
 #################################
 # Configuration
 #################################
-PDF_PATH = "mobikwik.pdf"  # Update with your RHP PDF filename
-MODEL_PATH = "./models/llama-2-7b-chat.Q4_K_M.gguf"  # Path to your GGML model file
+PDF_PATH = "mobikwik.pdf"
+MODEL_PATH = "./models/llama-2-7b-chat.Q4_K_M.gguf"
 
 PAGE_SUMMARY_WORD_LIMIT = 150
 SECTION_SUMMARY_WORD_LIMIT = 300
-CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
+CHUNK_SIZE = 20
 
-# Adjust LLaMA parameters if needed.
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
-    "n_ctx": 8192,
-    "n_threads": 32,
-    "n_gpu_layers": -1,   # All layers on GPU if supported
-    "n_batch": 2048,
+    "n_ctx": 4096,          # simpler context window
+    "n_threads": 16,        # reasonable CPU threads
+    "n_gpu_layers": 40,     # offload layers to GPU if supported
     "f16_kv": True,
-    "f16": True,
-    "use_mlock": True,
-    "use_mmap": True,
-    "offload_kqv": True,
-    "mul_mat_q": True,
-    "tensor_split": None,
-    "rope_scaling": {"type": "linear", "factor": 4.0},
-    "numa": True,
-    "gpu_memory_utilization": 0.9,
-    "temperature": 0.1,
+    "temperature": 0.7,     # increase temperature for more elaboration
     "top_p": 0.9,
-    "max_tokens": 8192,
-    "embedding": False,  # Embedding not needed here
+    "max_tokens": 2048,     # limit generation length, can adjust if needed
     "verbose": False
 }
 
@@ -79,7 +67,7 @@ Use a professional, structured format. Present tables in Markdown format. Ensure
 Section Summaries:
 {all_section_summaries}
 
-Now produce the final IPO note below. Do not stop early:
+Now produce the final IPO note below. Be detailed and do not stop early. Begin now:
 """
 
 #################################
@@ -95,13 +83,10 @@ def extract_pages(pdf_path):
     return pages_text
 
 def run_local_llm(client: Llama, prompt: str) -> str:
-    # Removed stop tokens to avoid premature cutoff.
     response = client(
         prompt=prompt,
         echo=False,
-        temperature=0.1,
-        top_p=0.9,
-        # Allow the model to generate as many tokens as needed (up to the max_tokens in LLAMA_PARAMS).
+        # No stop tokens here
     )
     return response['choices'][0]['text'].strip()
 
@@ -121,22 +106,18 @@ def assemble_final_note(client: Llama, section_summaries_text):
 # Main Pipeline
 #################################
 def main():
-    # Load the LLaMA model
-    print("Loading LLaMA model, this may take a while...")
+    print("Loading LLaMA model...")
     client = Llama(**LLAMA_PARAMS)
 
-    # 1. Extract all pages
     pages_text = extract_pages(PDF_PATH)
     print(f"Extracted {len(pages_text)} pages from {PDF_PATH}")
 
-    # 2. Page-by-page summaries
     page_summaries = []
     for i, p_text in enumerate(pages_text):
         print(f"Summarizing page {i+1}/{len(pages_text)}...")
         summary = summarize_page(client, p_text, word_limit=PAGE_SUMMARY_WORD_LIMIT)
         page_summaries.append(summary)
 
-    # 3. Chunk the page summaries into sections
     section_summaries = []
     for i in range(0, len(page_summaries), CHUNK_SIZE):
         chunk = page_summaries[i:i+CHUNK_SIZE]
@@ -147,12 +128,14 @@ def main():
         section_summary = summarize_section(client, chunk_joined, word_limit=SECTION_SUMMARY_WORD_LIMIT)
         section_summaries.append(section_summary)
 
-    # 4. Final assembly of the entire IPO note
     all_section_summaries = "\n\n".join(section_summaries)
     print("Assembling final IPO note...")
     final_ipo_note = assemble_final_note(client, all_section_summaries)
 
-    # 5. Output final note
+    # Save to file for inspection
+    with open("final_ipo_note.txt", "w") as f:
+        f.write(final_ipo_note)
+
     print("Final IPO Note:\n")
     print(final_ipo_note)
 
