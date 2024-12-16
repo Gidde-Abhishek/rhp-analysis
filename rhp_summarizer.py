@@ -206,7 +206,52 @@ LLAMA_PARAMS = {
 }
 
 #################################
-# Enhanced Functions
+# Prompts
+#################################
+PAGE_SUMMARY_PROMPT_TEMPLATE = """You are an AI assistant with expertise in analyzing financial documents.
+
+Given the following page from a Red Herring Prospectus, produce a concise summary (no more than {word_limit} words) highlighting:
+- Relevant company details (business lines, market position, strategy)
+- Financial data points (revenues, profitability) if mentioned
+- Risk factors if mentioned
+- Any key IPO details (if present)
+
+Keep it factual and concise.
+
+Page Content:
+{page_text}
+
+Your Summary:"""
+
+SECTION_SUMMARY_PROMPT_TEMPLATE = """You have the following summaries of multiple pages from an RHP:
+{summaries}
+
+Please produce a higher-level summary (no more than {word_limit} words) integrating all these details. Focus on key financials, strategic insights, risk factors, and IPO-related info that appear repeatedly or stand out as important. Provide a coherent narrative that merges the information from these pages.
+
+Your Integrated Summary:"""
+
+FINAL_NOTE_PROMPT_TEMPLATE = """You have been provided integrated summaries of multiple sections of a Red Herring Prospectus. Use them to produce a concise, structured IPO note that includes:
+
+- Cover Page info (Company name, tagline)
+- Company description (main business lines, position)
+- Issue Details (tables for price band, face value, issue size, etc.)
+- Salient Features (company overview, IPO proceeds usage, strengths, risk factors, market opportunity)
+- Financial Analysis (tables and key metrics)
+- Peer Comparison (table of key metrics across competitors)
+- Detailed Financials (tables: P&L, Balance Sheet, Cash Flows, key ratios)
+- IPO Timeline (key dates)
+- Investment Recommendation, Rationale, Risk factors
+- Legal Disclaimers
+
+Use a professional, structured format. Present tables in Markdown format. Ensure clarity and coherence.
+
+Section Summaries:
+{all_section_summaries}
+
+Now produce the final IPO note below. Be detailed and do not stop early. Begin now:"""
+
+#################################
+# Functions
 #################################
 def should_skip_page(text):
     """Check if page should be skipped based on patterns."""
@@ -235,6 +280,26 @@ def extract_pages(pdf_path):
     
     return pages_text, page_numbers
 
+def run_local_llm(client: Llama, prompt: str, max_tokens=None) -> str:
+    response = client(
+        prompt=prompt,
+        echo=False,
+        max_tokens=max_tokens if max_tokens else None
+    )
+    return response['choices'][0]['text'].strip()
+
+def summarize_page(client: Llama, page_text, word_limit=100):
+    prompt = PAGE_SUMMARY_PROMPT_TEMPLATE.format(page_text=page_text, word_limit=word_limit)
+    return run_local_llm(client, prompt)
+
+def summarize_section(client: Llama, summaries_text, word_limit=200):
+    prompt = SECTION_SUMMARY_PROMPT_TEMPLATE.format(summaries=summaries_text, word_limit=word_limit)
+    return run_local_llm(client, prompt)
+
+def assemble_final_note(client: Llama, section_summaries_text, max_tokens=4096):
+    prompt = FINAL_NOTE_PROMPT_TEMPLATE.format(all_section_summaries=section_summaries_text)
+    return run_local_llm(client, prompt, max_tokens=max_tokens)
+
 def process_pages_in_batches(client, pages_text, page_numbers, batch_size=5):
     """Process pages in small batches to prevent memory issues."""
     summaries = []
@@ -261,6 +326,9 @@ def process_pages_in_batches(client, pages_text, page_numbers, batch_size=5):
     
     return summaries
 
+#################################
+# Main Pipeline
+#################################
 def main():
     print("Loading LLaMA model...")
     client = Llama(**LLAMA_PARAMS)
