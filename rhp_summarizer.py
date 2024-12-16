@@ -27,18 +27,18 @@ CHUNK_SIZE = 20  # Number of page summaries per intermediate summarization step
 LLAMA_PARAMS = {
     "model_path": MODEL_PATH,
     "n_ctx": 7168,
-    "n_threads": 8,              # Increased from 0 to utilize multiple CPU threads
-    "n_gpu_layers": -1,          # Changed to -1 to offload all layers to GPU
-    "n_batch": 512,              # Added batch size for better GPU utilization
+    "n_threads": 16,            # Match your CPU core count
+    "n_gpu_layers": -1,         # Offload all layers to GPU
+    "n_batch": 512,             # Increased batch size for RTX 4090
     "f16_kv": True,
-    "f16": True,                 # Added full FP16 inference
-    "use_mlock": False,          # Prevents memory from being swapped
-    "use_mmap": True,            # Memory-mapped IO for faster loading
-    "embedding": True,           # Enable embedding mode
+    "f16": True,
+    "use_mlock": False,
+    "use_mmap": True,
+    "offload_kqv": True,        # Additional GPU optimization
+    "vulkan": False,            # Ensure CUDA is used instead of Vulkan
     "temperature": 0.1,
     "top_p": 0.9,
-    "max_tokens": 6144,
-    "gpu_layers": -1             # Alternative way to specify full GPU offload
+    "max_tokens": 6144
 }
 
 #################################
